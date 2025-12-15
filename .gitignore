@@ -1,1 +1,3 @@
 Fast-dLLM- Training-free Acceleration of Diffusion LLM by Enabling KV Cache and Parallel Decoding.pdf
+*.pyc
+llada/evals_results
