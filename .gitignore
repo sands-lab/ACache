@@ -2,3 +2,4 @@ Fast-dLLM- Training-free Acceleration of Diffusion LLM by Enabling KV Cache and 
 *.pyc
 llada/evals_results
 llada/figures
+llada/figure*.py
