@@ -447,7 +447,7 @@ class DreamGenerationMixin:
             current_block_start = input_ids.shape[1] + num_block * block_length
             current_block_end = current_block_start + block_length
 
-            # update cache
+            # recompute cache
             model_output = self(x, attention_mask, tok_idx, use_cache=True)
             past_key_values = model_output.past_key_values
             logits = model_output.logits
