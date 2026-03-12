@@ -38,5 +38,5 @@ for anchor_ratio in "${anchor_ratios[@]}"; do
     --num_fewshot 3 \
     --trust_remote_code \
     --model llada_acache \
-    --model_args "model_path=GSAI-ML/LLaDA-8B-Instruct,gen_length=256,steps=256,block_length=32,use_cache=True,threshold=0.9,show_speed=True,affix_type=prefix,system_prompt=policy,use_crux=True,anchor_ratio=${anchor_ratio},selection_mode=top"
+    --model_args "model_path=GSAI-ML/LLaDA-8B-Instruct,gen_length=256,steps=256,block_length=32,threshold=0.9,show_speed=True,affix_type=prefix,anchor_ratio=${anchor_ratio},selection_mode=top"
 done
