@@ -35,7 +35,7 @@ for anchor_ratio in "${anchor_ratios[@]}"; do
   accelerate launch eval_ACache.py \
     --seed "${seed}" \
     --tasks gsm8k \
-    --num_fewshot 3 \
+    --num_fewshot 4 \
     --trust_remote_code \
     --model llada_acache \
     --model_args "model_path=GSAI-ML/LLaDA-8B-Instruct,gen_length=256,steps=256,block_length=32,threshold=0.9,show_speed=True,affix_type=prefix,anchor_ratio=${anchor_ratio},selection_mode=top"
