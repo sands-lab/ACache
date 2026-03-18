@@ -8,9 +8,10 @@ seed=0
 dataset="gsm8k"
 num_fewshot=4
 drop_non_anchor=false
+affix_type="prefix"
 
 usage() {
-  echo "Usage: $0 [--seed SEED] [--dataset DATASET] [--num-fewshot N] [--drop-non-anchor] [SEED] [DATASET]"
+  echo "Usage: $0 [--seed SEED] [--dataset DATASET] [--num-fewshot N] [--affix-type {prefix|infix|suffix}] [--prefix|--infix|--suffix] [--drop-non-anchor] [SEED] [DATASET]"
 }
 
 positional_args=()
@@ -40,6 +41,26 @@ while [[ $# -gt 0 ]]; do
       fi
       num_fewshot="$2"
       shift 2
+      ;;
+    --affix-type|--affix_type)
+      if [[ $# -lt 2 ]]; then
+        usage
+        exit 1
+      fi
+      affix_type="$2"
+      shift 2
+      ;;
+    --prefix)
+      affix_type="prefix"
+      shift
+      ;;
+    --infix)
+      affix_type="infix"
+      shift
+      ;;
+    --suffix)
+      affix_type="suffix"
+      shift
       ;;
     --drop|--drop-non-anchor)
       drop_non_anchor=true
@@ -95,6 +116,11 @@ if ! [[ "${num_fewshot}" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
+if [[ "${affix_type}" != "prefix" && "${affix_type}" != "infix" && "${affix_type}" != "suffix" ]]; then
+  echo "affix_type must be one of: prefix, infix, suffix. Got: ${affix_type}"
+  exit 1
+fi
+
 if [[ -z "${dataset}" ]]; then
   echo "Dataset must be non-empty."
   exit 1
@@ -103,12 +129,12 @@ fi
 anchor_ratios=(0.0 0.1 0.2 0.3 0.5 1.0)
 
 for anchor_ratio in "${anchor_ratios[@]}"; do
-  model_args="model_path=GSAI-ML/LLaDA-8B-Instruct,gen_length=256,steps=256,block_length=32,threshold=0.9,show_speed=True,affix_type=prefix,anchor_ratio=${anchor_ratio},selection_mode=top"
+  model_args="model_path=GSAI-ML/LLaDA-8B-Instruct,gen_length=256,steps=256,block_length=32,threshold=0.9,show_speed=True,affix_type=${affix_type},anchor_ratio=${anchor_ratio},selection_mode=top"
   if [[ "${drop_non_anchor}" == "true" ]]; then
     model_args+=",drop_non_anchor=True"
   fi
 
-  echo "Running with seed=${seed}, dataset=${dataset}, num_fewshot=${num_fewshot}, anchor_ratio=${anchor_ratio}, drop_non_anchor=${drop_non_anchor}"
+  echo "Running with seed=${seed}, dataset=${dataset}, num_fewshot=${num_fewshot}, affix_type=${affix_type}, anchor_ratio=${anchor_ratio}, drop_non_anchor=${drop_non_anchor}"
   accelerate launch eval_ACache.py \
     --seed "${seed}" \
     --tasks "${dataset}" \
