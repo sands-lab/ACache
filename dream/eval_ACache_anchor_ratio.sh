@@ -127,7 +127,8 @@ if [[ -z "${dataset}" ]]; then
 fi
 
 anchor_ratios=(0.0 0.1 0.2 0.3 0.5 1.0)
-model="Dream-org/Dream-v0-Instruct-7B"
+model="Dream-org/Dream-v0-Base-7B"
+# model="Dream-org/Dream-v0-Instruct-7B"
 
 for anchor_ratio in "${anchor_ratios[@]}"; do
   model_args="pretrained=${model},gen_length=256,steps=256,block_length=32,threshold=0.9,show_speed=True,affix_type=${affix_type},anchor_ratio=${anchor_ratio},selection_mode=top"
