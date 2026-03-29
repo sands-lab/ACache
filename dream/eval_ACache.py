@@ -143,21 +143,6 @@ class DreamAnchorEvalHarness(ACacheEvalHarnessMixin, LM):
             model_label="dream_acache",
         )
 
-    def _uses_chat_template_for_prompts(self) -> bool:
-        return True
-
-    def _build_input_ids_with_affix(self, question: str, affix_state):
-        if self.affix_type != "none":
-            return super()._build_input_ids_with_affix(question, affix_state)
-
-        input_ids = self._tokenize_chat_messages(
-            [{"role": "user", "content": question}],
-            add_generation_prompt=True,
-        )
-        generation_start = len(input_ids)
-        generation_end = generation_start + self.gen_length
-        return input_ids, 0, 0, generation_start, generation_end
-
     def _generate_with_affix_cache(
         self,
         input_ids: torch.Tensor,
