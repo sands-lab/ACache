@@ -4,3 +4,4 @@ evals_results
 llada/figures
 llada/figure*.py
 slurm-*.out
+.codex
