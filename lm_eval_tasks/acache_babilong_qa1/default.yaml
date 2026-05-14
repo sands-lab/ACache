@@ -1,0 +1,31 @@
+task: acache_babilong_qa1
+dataset_path: RMT-team/babilong-1k-samples
+dataset_name: 0k
+output_type: generate_until
+training_split: qa1
+validation_split: qa1
+doc_to_text: "{{question}}"
+doc_to_target: "{{target}}"
+should_decontaminate: false
+doc_to_decontamination_query: question
+generation_kwargs:
+  until:
+    - "\n"
+    - "."
+    - ","
+  do_sample: false
+  temperature: 0.0
+filter_list:
+  - name: remove_whitespace
+    filter:
+      - function: remove_whitespace
+      - function: take_first
+target_delimiter: " "
+metric_list:
+  - metric: exact_match
+    aggregation: mean
+    higher_is_better: true
+    ignore_case: true
+    ignore_punctuation: true
+metadata:
+  version: 1.0
