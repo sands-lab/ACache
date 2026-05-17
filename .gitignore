@@ -6,4 +6,4 @@ llada/figures
 llada/figure*.py
 slurm-*.out
 .codex
-acc.csv
+*acc*

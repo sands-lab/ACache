@@ -1,4 +1,4 @@
-task: acache_babilong_qa1
+task: babilong
 dataset_path: RMT-team/babilong-1k-samples
 dataset_name: 0k
 output_type: generate_until
