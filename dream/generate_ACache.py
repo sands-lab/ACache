@@ -196,9 +196,15 @@ def compute_attention_importance_cross_affix(
     """
     bsz, seqlen = full_input_ids.shape
     affix_len = affix_cache[0][0].shape[1] if len(affix_cache) > 0 else 0
-    mask_query_mask = full_input_ids == mask_id
-    query_position_ids = torch.arange(seqlen, device=full_input_ids.device, dtype=torch.long).unsqueeze(0)
-    query_position_ids = query_position_ids.expand(bsz, -1)
+    prefix_positions = torch.arange(0, affix_start, device=full_input_ids.device, dtype=torch.long)
+    suffix_positions = torch.arange(
+        affix_start + affix_len,
+        seqlen,
+        device=full_input_ids.device,
+        dtype=torch.long,
+    )
+    probe_position_ids = torch.cat((prefix_positions, suffix_positions))
+    query_position_ids = probe_position_ids.unsqueeze(0).expand(bsz, -1)
     affix_position_ids = torch.arange(
         affix_start,
         affix_start + affix_len,
@@ -211,10 +217,31 @@ def compute_attention_importance_cross_affix(
             return torch.zeros(bsz, 0, device=full_input_ids.device)
         if seqlen <= 0:
             return torch.zeros(bsz, affix_len, device=full_input_ids.device)
+        if probe_position_ids.numel() == 0:
+            return torch.zeros(bsz, affix_len, device=full_input_ids.device)
+
+        probe_input_ids = full_input_ids.index_select(1, probe_position_ids)
+        mask_query_mask = probe_input_ids == mask_id
         if not mask_query_mask.any():
             return torch.zeros(bsz, affix_len, device=full_input_ids.device)
 
         importance_sum = torch.zeros(bsz, affix_len, device=full_input_ids.device, dtype=torch.float32)
+        sample_k, sample_v = affix_cache[0]
+        kv_hidden = sample_k.shape[2]
+        selection_past_key_values = []
+        for affix_k, affix_v in affix_cache:
+            if affix_k.shape[0] == 1 and bsz != 1:
+                affix_k = affix_k.expand(bsz, -1, -1)
+                affix_v = affix_v.expand(bsz, -1, -1)
+            layer_k = torch.zeros(bsz, seqlen, kv_hidden, dtype=sample_k.dtype, device=sample_k.device)
+            layer_v = torch.zeros(bsz, seqlen, kv_hidden, dtype=sample_v.dtype, device=sample_v.device)
+            layer_k[:, affix_start:affix_start + affix_len, :] = affix_k
+            layer_v[:, affix_start:affix_start + affix_len, :] = affix_v
+            selection_past_key_values.append((layer_k, layer_v))
+        selection_past_key_values = tuple(selection_past_key_values)
+        probe_replace_position = torch.zeros(bsz, seqlen, dtype=torch.bool, device=full_input_ids.device)
+        probe_replace_position[:, probe_position_ids] = True
+
         layers = model.model.layers
         original_forwards = []
 
@@ -230,6 +257,7 @@ def compute_attention_importance_cross_affix(
                 cache_position=None,
                 position_embeddings=None,
                 replace_position=None,
+                cache_position_ids=None,
                 dual_cache=False,
                 **extra_kwargs,
             ):
@@ -244,6 +272,8 @@ def compute_attention_importance_cross_affix(
                 ).transpose(1, 2)
 
                 affix_k = affix_cache[layer_idx][0]
+                if affix_k.shape[0] == 1 and local_bsz != 1:
+                    affix_k = affix_k.expand(local_bsz, -1, -1)
                 affix_k = affix_k.view(
                     local_bsz,
                     affix_len,
@@ -277,6 +307,7 @@ def compute_attention_importance_cross_affix(
                     "cache_position": cache_position,
                     "position_embeddings": position_embeddings,
                     "replace_position": replace_position,
+                    "cache_position_ids": cache_position_ids,
                     "dual_cache": dual_cache,
                 }
                 call_kwargs.update(extra_kwargs)
@@ -298,9 +329,13 @@ def compute_attention_importance_cross_affix(
 
         try:
             model.model.forward(
-                input_ids=full_input_ids,
+                input_ids=probe_input_ids,
+                past_key_values=selection_past_key_values,
                 use_cache=False,
                 output_hidden_states=False,
+                dual_cache=True,
+                replace_position=probe_replace_position,
+                position_ids=query_position_ids,
             )
         finally:
             for attention, original_forward in original_forwards:

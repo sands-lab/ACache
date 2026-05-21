@@ -67,8 +67,14 @@ def compute_attention_importance_cross_affix(
     """
     B, L = full_input_ids.shape
     affix_len = affix_cache[0][0].shape[2] if len(affix_cache) > 0 else 0
-    mask_query_mask = (full_input_ids == mask_id)
-    query_position_ids = torch.arange(L, device=full_input_ids.device, dtype=torch.long)
+    prefix_positions = torch.arange(0, affix_start, device=full_input_ids.device, dtype=torch.long)
+    suffix_positions = torch.arange(
+        affix_start + affix_len,
+        L,
+        device=full_input_ids.device,
+        dtype=torch.long,
+    )
+    probe_position_ids = torch.cat((prefix_positions, suffix_positions))
     affix_position_ids = torch.arange(
         affix_start,
         affix_start + affix_len,
@@ -81,10 +87,32 @@ def compute_attention_importance_cross_affix(
             return torch.zeros(B, 0, device=full_input_ids.device)
         if L <= 0:
             return torch.zeros(B, affix_len, device=full_input_ids.device)
+        if probe_position_ids.numel() == 0:
+            return torch.zeros(B, affix_len, device=full_input_ids.device)
+
+        probe_input_ids = full_input_ids.index_select(1, probe_position_ids)
+        mask_query_mask = (probe_input_ids == mask_id)
         if not mask_query_mask.any():
             return torch.zeros(B, affix_len, device=full_input_ids.device)
 
         importance_sum = torch.zeros(B, affix_len, device=full_input_ids.device, dtype=torch.float32)
+        sample_k, sample_v = affix_cache[0]
+        num_heads = sample_k.shape[1]
+        head_dim = sample_k.shape[3]
+        selection_past_key_values = []
+        for affix_k, affix_v in affix_cache:
+            if affix_k.shape[0] == 1 and B != 1:
+                affix_k = affix_k.expand(B, -1, -1, -1)
+                affix_v = affix_v.expand(B, -1, -1, -1)
+            layer_k = torch.zeros(B, num_heads, L, head_dim, dtype=sample_k.dtype, device=sample_k.device)
+            layer_v = torch.zeros(B, num_heads, L, head_dim, dtype=sample_v.dtype, device=sample_v.device)
+            layer_k[:, :, affix_start:affix_start + affix_len, :] = affix_k
+            layer_v[:, :, affix_start:affix_start + affix_len, :] = affix_v
+            selection_past_key_values.append((layer_k, layer_v))
+        selection_past_key_values = tuple(selection_past_key_values)
+        probe_replace_position = torch.zeros(B, L, dtype=torch.bool, device=full_input_ids.device)
+        probe_replace_position[:, probe_position_ids] = True
+
         blocks = model.model.transformer.blocks
         original_forwards = []
 
@@ -96,6 +124,7 @@ def compute_attention_importance_cross_affix(
                 use_cache=False,
                 replace_position=None,
                 position_ids=None,
+                cache_position_ids=None,
                 **extra_kwargs,
             ):
                 x_normed = self.attn_norm(x)
@@ -113,12 +142,12 @@ def compute_attention_importance_cross_affix(
 
                 if hasattr(self, "rotary_emb") and self.rotary_emb is not None:
                     # Cache stores keys before RoPE, so apply RoPE here:
-                    # - q uses its full-sequence positions
+                    # - q uses the dynamic probe positions
                     # - affix_k uses absolute affix positions in the full prompt
                     q, _ = self.rotary_emb(
                         q,
                         q,
-                        position_ids=query_position_ids,
+                        position_ids=probe_position_ids,
                         rotate_key_full=True,
                     )
                     _, affix_k = self.rotary_emb(
@@ -149,6 +178,7 @@ def compute_attention_importance_cross_affix(
                     "use_cache": use_cache,
                     "replace_position": replace_position,
                     "position_ids": position_ids,
+                    "cache_position_ids": cache_position_ids,
                 }
                 call_kwargs.update(extra_kwargs)
                 filtered_kwargs = {k: v for k, v in call_kwargs.items() if k in accepted_params}
@@ -168,9 +198,13 @@ def compute_attention_importance_cross_affix(
 
         try:
             model.model.forward(
-                input_ids=full_input_ids,
+                input_ids=probe_input_ids,
+                past_key_values=selection_past_key_values,
                 use_cache=False,
+                last_logits_only=True,
                 output_hidden_states=False,
+                replace_position=probe_replace_position,
+                position_ids=probe_position_ids,
             )
         finally:
             for block, original_forward in original_forwards:
