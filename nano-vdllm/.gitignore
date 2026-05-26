@@ -1,0 +1,9 @@
+__pycache__/
+model/__pycache__/
+*.pyc
+*.csv
+*.png
+*.nsys-rep
+visualize.py
+*.out
+benchmark_results/
