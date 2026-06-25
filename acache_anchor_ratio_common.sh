@@ -159,6 +159,19 @@ acache_task_requires_unsafe_code() {
   return 1
 }
 
+acache_require_unsafe_code_confirmation() {
+  local tasks="${1:-}"
+  local confirmed="${2:-false}"
+  local confirm_flag="${3:---confirm-run-unsafe-code}"
+
+  if acache_task_requires_unsafe_code "${tasks}" && [[ "${confirmed}" != "true" ]]; then
+    echo "Task(s) '${tasks}' may execute code during evaluation." >&2
+    echo "Review the task and model code, then re-run with ${confirm_flag} if you trust them." >&2
+    return 1
+  fi
+  return 0
+}
+
 run_acache_anchor_ratio_sweep() {
   local run_dir=""
   local eval_model=""
@@ -210,7 +223,7 @@ run_acache_anchor_ratio_sweep() {
   local num_fewshot=4
   local drop_non_anchor=false
   local affix_type="prefix"
-  local confirm_run_unsafe_code="auto"
+  local confirm_run_unsafe_code=false
   local -a positional_args=()
 
   while [[ $# -gt 0 ]]; do
@@ -345,13 +358,7 @@ run_acache_anchor_ratio_sweep() {
   fi
   local -a task_eval_args=()
 
-  if [[ "${confirm_run_unsafe_code}" == "auto" ]]; then
-    if acache_task_requires_unsafe_code "${dataset}"; then
-      confirm_run_unsafe_code=true
-    else
-      confirm_run_unsafe_code=false
-    fi
-  fi
+  acache_require_unsafe_code_confirmation "${dataset}" "${confirm_run_unsafe_code}" "--confirm-run-unsafe-code" || return $?
 
   local accelerate_bin
   accelerate_bin="$(acache_find_accelerate_bin)"

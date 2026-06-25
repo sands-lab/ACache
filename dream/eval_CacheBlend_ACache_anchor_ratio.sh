@@ -87,7 +87,7 @@ drop_non_anchor=false
 affix_type="prefix"
 score_metric="l2"
 include_values=true
-confirm_run_unsafe_code="auto"
+confirm_run_unsafe_code=false
 positional_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -239,13 +239,7 @@ if acache_tasks_are_babilong "${dataset}"; then
 fi
 task_eval_args=()
 
-if [[ "${confirm_run_unsafe_code}" == "auto" ]]; then
-  if task_requires_unsafe_code "${dataset}"; then
-    confirm_run_unsafe_code=true
-  else
-    confirm_run_unsafe_code=false
-  fi
-fi
+acache_require_unsafe_code_confirmation "${dataset}" "${confirm_run_unsafe_code}" "--confirm-run-unsafe-code"
 
 accelerate_bin="$(find_accelerate_bin)"
 if [[ ! -x "${accelerate_bin:-}" ]]; then

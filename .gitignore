@@ -1,9 +1,43 @@
-Fast-dLLM- Training-free Acceleration of Diffusion LLM by Enabling KV Cache and Parallel Decoding.pdf
-CacheBlend*
-*.pyc
-evals_results
-llada/figures
-llada/figure*.py
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.conda/
+
+# Local editor and OS files
+.DS_Store
+.idea/
+.vscode/
+.ipynb_checkpoints/
+
+# Local Codex/agent state
+.codex/
+.agents/
+
+# Local runtime artifacts
+.kmp_shm
+
+# Experiment outputs and logs
+evals_results/
+outputs/
+runs/
+wandb/
 slurm-*.out
-.codex
-*acc*
+*.log
+
+# Generated analysis artifacts
+accs_figures/
+llada/figures/
+llada/figure*.py
+CacheBlend*/
+Fast-dLLM- Training-free Acceleration of Diffusion LLM by Enabling KV Cache and Parallel Decoding.pdf

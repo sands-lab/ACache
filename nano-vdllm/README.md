@@ -27,4 +27,4 @@ python eval_llada.py --seed 1 \
 
 `eval_llada.py` maps `--num_fewshot` to model-side `fewshot_num_examples` and rebuilds prefix few-shot prompts with the same logic as `../ACache/llada/eval_ACache.py`. `lm_eval`'s own few-shot prompt construction is disabled for this path.
 
-For MBPP, use `--tasks mbpp`; lm-eval already provides the task, and the script auto-selects `google-research-datasets/mbpp`, `full:prompt`, and `text`/`code` few-shot keys.
+For MBPP, use `--tasks mbpp`; lm-eval already provides the task, and the script auto-selects `google-research-datasets/mbpp`, `full:prompt`, and `text`/`code` few-shot keys. MBPP may execute generated Python code during evaluation, so pass `--confirm_run_unsafe_code` only after reviewing and trusting the task and model code.

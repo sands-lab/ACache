@@ -6,12 +6,12 @@ usage() {
   local prog_name="$1"
   local script_name="./$(basename "${prog_name}")"
   cat <<EOF
-Usage: ${script_name} --dataset {mbpp|gsm8k} (--acache|--baseline) [--model {llada|dream}] [--seed SEED] [--num-fewshot N] [--batch-size N] [--anchor-ratio R] [--profile] [--no-profile] [-- EXTRA_EVAL_ARGS...]
+Usage: ${script_name} --dataset {mbpp|gsm8k} (--acache|--baseline) [--model {llada|dream}] [--seed SEED] [--num-fewshot N] [--batch-size N] [--anchor-ratio R] [--profile] [--no-profile] [--confirm-run-unsafe-code] [-- EXTRA_EVAL_ARGS...]
 
 Examples:
-  ${script_name} --dataset mbpp --baseline
-  ${script_name} --dataset mbpp --acache --anchor-ratio 0.2 --profile
-  ${script_name} --model dream --dataset mbpp --acache --anchor-ratio 0.2 --profile
+  ${script_name} --dataset mbpp --baseline --confirm-run-unsafe-code
+  ${script_name} --dataset mbpp --acache --anchor-ratio 0.2 --profile --confirm-run-unsafe-code
+  ${script_name} --model dream --dataset mbpp --acache --anchor-ratio 0.2 --profile --confirm-run-unsafe-code
 EOF
 }
 
@@ -39,6 +39,7 @@ batch_size=16
 anchor_ratio=0.2
 acache=""
 profile_timing=false
+confirm_run_unsafe_code=false
 extra_eval_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -105,6 +106,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-profile|--no-profile-timing|--no_profile_timing)
       profile_timing=false
+      shift
+      ;;
+    --confirm-run-unsafe-code|--confirm_run_unsafe_code)
+      confirm_run_unsafe_code=true
+      shift
+      ;;
+    --no-confirm-run-unsafe-code|--no_confirm_run_unsafe_code)
+      confirm_run_unsafe_code=false
       shift
       ;;
     --help|-h)
@@ -194,6 +203,11 @@ fi
 
 task_eval_args=()
 if task_requires_unsafe_code "${dataset}"; then
+  if [[ "${confirm_run_unsafe_code}" != "true" ]]; then
+    echo "Task '${dataset}' may execute code during evaluation." >&2
+    echo "Review the task and model code, then re-run with --confirm-run-unsafe-code if you trust them." >&2
+    exit 1
+  fi
   export HF_ALLOW_CODE_EVAL=1
   task_eval_args+=(--confirm_run_unsafe_code)
 fi

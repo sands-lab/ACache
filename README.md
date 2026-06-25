@@ -6,6 +6,13 @@ This repository contains two evaluation paths:
 - `llada/` and `dream/`: ACache evaluation scripts for LLaDA and Dream.
 - `nano-vdllm/`: a compact batched inference/evaluation implementation with ACache support.
 
+<p align="center">
+  <img src="assets/ARvsDLLM.png" alt="ACache comparison with AR LLMs and DLLMs" width="100%">
+</p>
+
+ACache reuses affix KV cache entries for diffusion LLMs while recomputing only
+anchor and request-specific KV states.
+
 ## Environment
 
 The experiments were run in a conda environment named `ACache`.
@@ -25,6 +32,17 @@ Choose the PyTorch command that matches your CUDA or CPU runtime from the
 PyTorch installation selector:
 https://pytorch.org/get-started/locally/.
 
+## Security Note
+
+The evaluation scripts pass `--trust_remote_code` when loading Hugging Face
+models and tokenizers. Run the scripts only with model repositories and
+datasets that you trust.
+
+MBPP evaluation may execute generated Python code as part of code-evaluation
+metrics. For MBPP runs, the scripts require an explicit
+`--confirm-run-unsafe-code` flag before setting `HF_ALLOW_CODE_EVAL=1`.
+Omit that flag for non-code-execution tasks such as GSM8K and BABILong.
+
 ## ACache Evaluation
 
 The ACache scripts sweep anchor ratios `0.0, 0.1, 0.2, 0.3, 0.5, 1.0` for a
@@ -34,7 +52,7 @@ Run LLaDA on MBPP with infix placement:
 
 ```bash
 cd llada
-./eval_ACache_anchor_ratio.sh --seed 0 --dataset mbpp --num-fewshot 2 --infix
+./eval_ACache_anchor_ratio.sh --seed 0 --dataset mbpp --num-fewshot 2 --infix --confirm-run-unsafe-code
 ```
 
 Run LLaDA on BABILong with default prefix placement:
@@ -56,7 +74,7 @@ prefix placement:
 
 ```bash
 cd llada
-./eval_CacheBlend_ACache_anchor_ratio.sh --seed 0 --dataset mbpp --num-fewshot 2
+./eval_CacheBlend_ACache_anchor_ratio.sh --seed 0 --dataset mbpp --num-fewshot 2 --confirm-run-unsafe-code
 ```
 
 Run the CacheBlend-style ablation for Dream with suffix placement:
@@ -85,7 +103,7 @@ with and without ACache.
 
 ```bash
 cd nano-vdllm
-./run_eval.sh --model llada --dataset mbpp --acache --seed 0 --num-fewshot 2 --batch-size 16 --anchor-ratio 0.2
+./run_eval.sh --model llada --dataset mbpp --acache --seed 0 --num-fewshot 2 --batch-size 16 --anchor-ratio 0.2 --confirm-run-unsafe-code
 ```
 
 Baseline evaluation uses the same script:
@@ -99,13 +117,13 @@ Dream is selected with `--model dream`:
 
 ```bash
 cd nano-vdllm
-./run_eval.sh --model dream --dataset mbpp --acache --seed 1 --num-fewshot 1 --batch-size 16 --anchor-ratio 0.2
+./run_eval.sh --model dream --dataset mbpp --acache --seed 1 --num-fewshot 1 --batch-size 16 --anchor-ratio 0.2 --confirm-run-unsafe-code
 ```
 
 `nano-vdllm/run_eval.sh` accepts `--dataset {mbpp|gsm8k}`,
 `--model {llada|dream}`, `--acache` or `--baseline`, `--seed`,
 `--num-fewshot`, `--batch-size`, `--anchor-ratio`, and optional profiling flags
-`--profile` / `--no-profile`.
+`--profile` / `--no-profile`. Use `--confirm-run-unsafe-code` for MBPP runs.
 
 ## AI Assistance Disclosure
 
