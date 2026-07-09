@@ -790,12 +790,10 @@ class ModelRunner:
 
         prefix_len = len(prefix_token_ids)
         target_num_kvcache_blocks = int(self.config.num_kvcache_blocks)
-        selection_num_kvcache_blocks = min(
+        selection_minimum_blocks = min(
             target_num_kvcache_blocks,
             self._selection_kv_cache_blocks(seqs, prefix_len),
         )
-        if allow_kv_cache_resize and selection_num_kvcache_blocks < target_num_kvcache_blocks:
-            self.allocate_kv_cache(num_blocks=selection_num_kvcache_blocks)
 
         try:
             if self.acache_ready:
@@ -806,7 +804,7 @@ class ModelRunner:
                     self._ensure_shared_prefix(
                         prefix_token_ids,
                         seqs,
-                        minimum_blocks=selection_num_kvcache_blocks,
+                        minimum_blocks=selection_minimum_blocks,
                     )
                 else:
                     self._precompute_shared_prefix(list(prefix_token_ids))
@@ -815,7 +813,7 @@ class ModelRunner:
                 seqs,
                 prefix_token_ids,
                 allow_kv_cache_resize=allow_kv_cache_resize,
-                minimum_blocks=selection_num_kvcache_blocks,
+                minimum_blocks=selection_minimum_blocks,
             )
         except Exception:
             if allow_kv_cache_resize and self.config.num_kvcache_blocks != target_num_kvcache_blocks:

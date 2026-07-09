@@ -189,7 +189,7 @@ def test_batched_anchor_selection_matches_single_sequence_selection():
     not CUDA_AVAILABLE,
     reason="CUDA is required for ModelRunner ACache tests",
 )
-def test_prepare_acache_uses_probe_selection_cache_then_restores(monkeypatch):
+def test_prepare_acache_keeps_current_kv_cache_when_selection_fits(monkeypatch):
     torch.manual_seed(0)
     device = torch.device("cuda")
 
@@ -251,7 +251,7 @@ def test_prepare_acache_uses_probe_selection_cache_then_restores(monkeypatch):
     prefix_token_ids = runner._prepare_acache(seqs)
     assert prefix_token_ids == (2, 3)
     runner._prepare_admitted_sequences_for_acache(seqs, prefix_token_ids, allow_kv_cache_resize=True)
-    assert selection_cache_blocks == [2, 2]
+    assert selection_cache_blocks == [8, 8]
     assert runner.kv_cache.shape[2] == 8
     assert runner.config.num_kvcache_blocks == 8
     assert runner.shared_prefix_token_ids == (2, 3)
