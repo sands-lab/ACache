@@ -118,13 +118,10 @@ Third-party source and licenses are documented in `THIRD_PARTY_NOTICES.md`. The 
 ## Citation
 
 ```bibtex
-@misc{liang2026affixcache,
-  title         = {Affix Cache for Diffusion Large Language Models},
-  author        = {Kaihua Liang and An Zhong and Xin Tan and Zafar Ayyub Qazi and Hong Xu and Jian Weng and Marco Canini},
-  year          = {2026},
-  eprint        = {2608.26140},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.CL},
-  url           = {https://arxiv.org/abs/2608.26140}
+@article{liang2026affix,
+  title={Affix Cache for Diffusion Large Language Models},
+  author={Liang, Kaihua and Zhong, An and Tan, Xin and Qazi, Zafar Ayyub and Xu, Hong and Weng, Jian and Canini, Marco},
+  journal={arXiv preprint arXiv:2608.26140},
+  year={2026}
 }
 ```
