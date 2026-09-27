@@ -1,0 +1,286 @@
+#!/bin/bash
+
+set -euo pipefail
+
+usage() {
+  local prog_name="$1"
+  local script_name="./$(basename "${prog_name}")"
+  cat <<EOF
+Usage: ${script_name} --dataset {mbpp|gsm8k} (--acache|--dkv-cache|--dkv-acache|--baseline) [--model {llada|dream}] [--affix-type {prefix|infix|suffix}] [--seed SEED] [--num-fewshot N] [--batch-size N] [--anchor-ratio R] [--dkv-cache-interval N] [--profile] [--no-profile] [--confirm-run-unsafe-code] [-- EXTRA_EVAL_ARGS...]
+
+Examples:
+  ${script_name} --dataset mbpp --baseline --confirm-run-unsafe-code
+  ${script_name} --dataset mbpp --dkv-cache --dkv-cache-interval 8 --confirm-run-unsafe-code
+  ${script_name} --dataset mbpp --dkv-acache --anchor-ratio 0.2 --dkv-cache-interval 8 --confirm-run-unsafe-code
+  ${script_name} --dataset mbpp --acache --anchor-ratio 0.2 --profile --confirm-run-unsafe-code
+  ${script_name} --model dream --dataset mbpp --acache --anchor-ratio 0.2 --profile --confirm-run-unsafe-code
+EOF
+}
+
+task_requires_unsafe_code() {
+  local tasks="${1:-}"
+  local task
+  local IFS=','
+  read -r -a task_list <<< "${tasks}"
+  for task in "${task_list[@]}"; do
+    task="${task//[[:space:]]/}"
+    case "${task}" in
+      mbpp|mbpp_*)
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
+seed=0
+dataset=""
+model_choice="llada"
+num_fewshot=2
+batch_size=16
+anchor_ratio=0.2
+affix_type=prefix
+acache=""
+dkv_cache=false
+dkv_cache_interval=8
+profile_timing=false
+confirm_run_unsafe_code=false
+extra_eval_args=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dataset|--tasks)
+      if [[ $# -lt 2 ]]; then
+        usage "$0"
+        exit 1
+      fi
+      dataset="$2"
+      shift 2
+      ;;
+    --model|--model-type|--model_type)
+      if [[ $# -lt 2 ]]; then
+        usage "$0"
+        exit 1
+      fi
+      model_choice="$2"
+      shift 2
+      ;;
+    --acache)
+      acache=True
+      shift
+      ;;
+    --dkv-cache|--dkv_cache)
+      acache=False
+      dkv_cache=true
+      shift
+      ;;
+    --dkv-acache|--dkv_acache)
+      acache=True
+      dkv_cache=true
+      shift
+      ;;
+    --baseline|--no-acache)
+      acache=False
+      shift
+      ;;
+    --seed)
+      if [[ $# -lt 2 ]]; then
+        usage "$0"
+        exit 1
+      fi
+      seed="$2"
+      shift 2
+      ;;
+    --num-fewshot|--num_fewshot)
+      if [[ $# -lt 2 ]]; then
+        usage "$0"
+        exit 1
+      fi
+      num_fewshot="$2"
+      shift 2
+      ;;
+    --batch-size|--batch_size)
+      if [[ $# -lt 2 ]]; then
+        usage "$0"
+        exit 1
+      fi
+      batch_size="$2"
+      shift 2
+      ;;
+    --anchor-ratio|--anchor_ratio)
+      if [[ $# -lt 2 ]]; then
+        usage "$0"
+        exit 1
+      fi
+      anchor_ratio="$2"
+      shift 2
+      ;;
+    --dkv-cache-interval|--dkv_cache_interval)
+      dkv_cache_interval="$2"
+      shift 2
+      ;;
+    --affix-type|--affix_type)
+      affix_type="$2"
+      shift 2
+      ;;
+    --profile|--profile-timing|--profile_timing)
+      profile_timing=true
+      shift
+      ;;
+    --no-profile|--no-profile-timing|--no_profile_timing)
+      profile_timing=false
+      shift
+      ;;
+    --confirm-run-unsafe-code|--confirm_run_unsafe_code)
+      confirm_run_unsafe_code=true
+      shift
+      ;;
+    --no-confirm-run-unsafe-code|--no_confirm_run_unsafe_code)
+      confirm_run_unsafe_code=false
+      shift
+      ;;
+    --help|-h)
+      usage "$0"
+      exit 0
+      ;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do
+        extra_eval_args+=("$1")
+        shift
+      done
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage "$0"
+      exit 1
+      ;;
+  esac
+done
+
+case "${dataset}" in
+  mbpp|gsm8k)
+    ;;
+  "")
+    echo "Missing required --dataset {mbpp|gsm8k}." >&2
+    usage "$0"
+    exit 1
+    ;;
+  *)
+    echo "dataset must be one of: mbpp, gsm8k. Got: ${dataset}" >&2
+    exit 1
+    ;;
+esac
+case "${model_choice}" in
+  llada|dream)
+    ;;
+  *)
+    echo "model must be one of: llada, dream. Got: ${model_choice}" >&2
+    exit 1
+    ;;
+esac
+case "${acache}" in
+  True|False)
+    ;;
+  "")
+    echo "Missing required mode: pass one of --acache, --dkv-cache, --dkv-acache, or --baseline." >&2
+    usage "$0"
+    exit 1
+    ;;
+esac
+case "${affix_type}" in
+  prefix|infix|suffix)
+    ;;
+  *)
+    echo "affix_type must be one of: prefix, infix, suffix. Got: ${affix_type}" >&2
+    exit 1
+    ;;
+esac
+
+if ! [[ "${seed}" =~ ^-?[0-9]+$ ]]; then
+  echo "Seed must be an integer, got: ${seed}" >&2
+  exit 1
+fi
+if ! [[ "${num_fewshot}" =~ ^[0-9]+$ ]]; then
+  echo "num_fewshot must be a non-negative integer, got: ${num_fewshot}" >&2
+  exit 1
+fi
+if ! [[ "${batch_size}" =~ ^[0-9]+$ ]] || [[ "${batch_size}" -eq 0 ]]; then
+  echo "batch_size must be a positive integer, got: ${batch_size}" >&2
+  exit 1
+fi
+if ! [[ "${dkv_cache_interval}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "dkv_cache_interval must be a positive integer, got: ${dkv_cache_interval}" >&2
+  exit 1
+fi
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="${SLURM_SUBMIT_DIR:-${script_dir}}"
+if [[ ! -f "${repo_dir}/eval_llada.py" ]]; then
+  repo_dir="${script_dir}"
+fi
+if [[ ! -f "${repo_dir}/eval_llada.py" ]]; then
+  echo "Failed to locate eval_llada.py. Checked ${repo_dir}." >&2
+  exit 1
+fi
+cd "${repo_dir}"
+
+export HF_DATASETS_TRUST_REMOTE_CODE=true
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  export HF_METRICS_CACHE="${HF_METRICS_CACHE:-/tmp/hf_metrics_${SLURM_JOB_ID}}"
+  export HF_EVALUATE_CACHE="${HF_EVALUATE_CACHE:-/tmp/hf_evaluate_${SLURM_JOB_ID}}"
+  export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-/tmp/hf_datasets_${SLURM_JOB_ID}}"
+  mkdir -p "${HF_METRICS_CACHE}" "${HF_EVALUATE_CACHE}" "${HF_DATASETS_CACHE}"
+fi
+if [[ -n "${TMPDIR:-}" && ! -d "${TMPDIR}" ]]; then
+  export TMPDIR=/tmp
+fi
+
+task_eval_args=()
+if task_requires_unsafe_code "${dataset}"; then
+  if [[ "${confirm_run_unsafe_code}" != "true" ]]; then
+    echo "Task '${dataset}' may execute code during evaluation." >&2
+    echo "Review the task and model code, then re-run with --confirm-run-unsafe-code if you trust them." >&2
+    exit 1
+  fi
+  export HF_ALLOW_CODE_EVAL=1
+  task_eval_args+=(--confirm_run_unsafe_code)
+fi
+
+case "${model_choice}" in
+  dream)
+    eval_model_name="dream_dist"
+    model_args="model_path=Dream-org/Dream-v0-Instruct-7B,gen_length=256,block_length=32,recompute_batch_size=4,threshold=0.9,show_speed=True,acache=${acache}"
+    ;;
+  llada)
+    eval_model_name="llada_dist"
+    model_args="model_path=GSAI-ML/LLaDA-8B-Instruct,gen_length=256,recompute_batch_size=4,show_speed=True,acache=${acache}"
+    ;;
+esac
+if [[ "${acache}" == "True" ]]; then
+  model_args+=",anchor_ratio=${anchor_ratio}"
+fi
+if [[ "${dkv_cache}" == "true" ]]; then
+  model_args+=",dkv_cache=True,dkv_steps=256,dkv_cache_interval=${dkv_cache_interval}"
+fi
+model_args+=",affix_type=${affix_type}"
+if [[ "${profile_timing}" == "true" ]]; then
+  model_args+=",profile_timing=True"
+fi
+
+if [[ -n "${EVAL_PYTHON:-}" ]]; then
+  python_bin="${EVAL_PYTHON}"
+else
+  python_bin="$(command -v python)"
+fi
+
+echo "Running model=${model_choice}, dataset=${dataset}, affix_type=${affix_type}, acache=${acache}, dkv_cache=${dkv_cache}, dkv_cache_interval=${dkv_cache_interval}, seed=${seed}, num_fewshot=${num_fewshot}, batch_size=${batch_size}, anchor_ratio=${anchor_ratio}, profile_timing=${profile_timing}, python=${python_bin}"
+"${python_bin}" eval_llada.py \
+  --seed "${seed}" \
+  --tasks "${dataset}" \
+  --num_fewshot "${num_fewshot}" \
+  --batch_size "${batch_size}" \
+  "${task_eval_args[@]}" \
+  "${extra_eval_args[@]}" \
+  --model "${eval_model_name}" \
+  --model_args "${model_args}"

@@ -1,0 +1,33 @@
+{
+  "max_length_profiling_data": 16384,
+  "model": "GSAI-ML/LLaDA-8B-Instruct",
+  "num_profiling_data_per_ratio": 500,
+  "official_commit": "82a8d0122807daf58ceacd6a121201b8355f46c1",
+  "policy": {
+    "0": 1,
+    "10": 3,
+    "13": 5,
+    "15": 7,
+    "20": 8,
+    "21": 9,
+    "30": 10,
+    "49": 11,
+    "5": 2,
+    "54": 13,
+    "66": 14,
+    "68": 15,
+    "73": 16,
+    "87": 17,
+    "93": 18,
+    "95": 19,
+    "97": 20,
+    "98": 22,
+    "99": 32
+  },
+  "profile_dataset": "allenai/WildChat-4.8M",
+  "profile_memory_adapter": "elided official all-zero bidirectional attention bias for 40GB A100 profiling",
+  "profile_parallel_workers": 20,
+  "profile_seconds": 1688.455912505975,
+  "ratio_ids": "third_party/BiCache/ratio_ordered_WildChat_ids.npy",
+  "threshold": 0.97
+}

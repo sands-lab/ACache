@@ -1,0 +1,29 @@
+{
+  "max_length_profiling_data": 32768,
+  "model": "Dream-org/Dream-v0-Instruct-7B",
+  "num_profiling_data_per_ratio": 500,
+  "official_commit": "82a8d0122807daf58ceacd6a121201b8355f46c1",
+  "policy": {
+    "0": 1,
+    "10": 4,
+    "19": 5,
+    "32": 6,
+    "47": 7,
+    "56": 8,
+    "63": 9,
+    "76": 12,
+    "85": 13,
+    "86": 14,
+    "9": 2,
+    "92": 16,
+    "94": 17,
+    "95": 18,
+    "96": 28
+  },
+  "profile_dataset": "allenai/WildChat-4.8M",
+  "profile_parallel_workers": 20,
+  "profile_seconds": 1601.2084190398455,
+  "profiler": "official bicache.DreamProfiler",
+  "ratio_ids": "policies/dream_ratio_ordered_WildChat_ids.npy",
+  "threshold": 0.97
+}

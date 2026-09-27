@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.conda/
+.DS_Store
+.idea/
+.vscode/
+.codex/
+.agents/
+outputs/
+evals_results/
+*.log
+slurm-*.out
